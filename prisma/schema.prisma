@@ -1,0 +1,93 @@
+// Behavioral Prep — data model.
+// Source of truth for the domain is docs/SPEC.md §10–§12; deviations are in docs/DECISIONS.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id    String  @id
+  email String  @unique
+  name  String?
+
+  stories  Story[]
+  attempts PracticeAttempt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// System-owned. Seeded from src/data/questions.ts; users never create or edit these.
+model Question {
+  id         String     @id
+  text       String
+  competency Competency
+
+  attempts PracticeAttempt[]
+
+  createdAt DateTime @default(now())
+
+  @@index([competency])
+}
+
+model Story {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  attempts PracticeAttempt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// The central object. Everything else exists to give an attempt context.
+model PracticeAttempt {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+
+  // Deleting a story must never delete its attempts — the storyId is nulled instead (SPEC §16).
+  storyId String?
+  story   Story?  @relation(fields: [storyId], references: [id], onDelete: SetNull)
+
+  response        String
+  durationSeconds Int?
+  reflection      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, questionId])
+  @@index([userId, storyId])
+}
+
+enum Competency {
+  TEAMWORK
+  CONFLICT
+  LEADERSHIP
+  FAILURE
+  AMBIGUITY
+  COMMUNICATION
+  TECHNICAL_CHALLENGE
+  LEARNING
+  TIME_MANAGEMENT
+  FEEDBACK
+}

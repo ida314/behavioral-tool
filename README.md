@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Behavioral Prep
 
-## Getting Started
+A lightweight practice tool for entry-level software engineering candidates preparing for
+behavioral interviews.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Choose question → Answer → Save → Reflect → Review
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The bet: keeping a persistent, structured history of your answers — and being able to see
+your earlier attempts at the same question — makes practice meaningfully better than
+answering isolated questions.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Status
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Foundation is in place and verified: database schema, migration, a 53-question seeded
+bank, and the db/auth libraries. The user-facing app has not been built yet — see
+[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
-## Learn More
+## Getting started
 
-To learn more about Next.js, take a look at the following resources:
+Requires Node 22+ and Docker.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install              # runs prisma generate automatically
+cp .env.example .env
+npm run db:up            # Postgres 17 on localhost:5433
+npm run db:migrate
+npm run db:seed          # 53 questions + a dev user
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open http://localhost:3000. Browse the data with `npm run db:studio`.
 
-## Deploy on Vercel
+> Authentication is currently a dev stub — every request is attributed to one local user.
+> See [ADR-003](docs/DECISIONS.md#adr-003--dev-stub-authentication-now-managed-provider-in-phase-5).
+> Do not deploy publicly before Phase 5 replaces it.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16 (App Router) · TypeScript · Tailwind v4 · PostgreSQL 17 · Prisma 7 · Zod
+
+## Documentation
+
+- [`docs/SPEC.md`](docs/SPEC.md) — the product contract
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — architecture choices and their rationale
+- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — phased build order
+- [`AGENTS.md`](AGENTS.md) — conventions for anyone (human or agent) writing code here
+
+## Layout
+
+```
+src/
+  app/            routes (dashboard, practice, history, attempts, stories, progress)
+  components/     small, purpose-built UI pieces
+  lib/            db.ts · auth.ts · competency.ts · queries/ · actions/
+  data/           questions.ts — the curated question bank
+prisma/           schema.prisma · seed.ts · migrations/
+docs/             spec, decisions, implementation plan
+```
