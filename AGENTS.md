@@ -21,8 +21,9 @@ attempt, reflect, and review it later against earlier attempts at the same quest
 | `docs/DECISIONS.md` | Choices the spec left open, and why (auth, ORM, no REST layer, …) |
 | `docs/IMPLEMENTATION_PLAN.md` | **Start here.** What is already done, and the next phase to build |
 
-The foundation (schema, migration, seed, db/auth libs) is done and verified. The UI is
-not started. Phase 1 in the implementation plan is the next task.
+The MVP loop is built and verified: practice → save → review → practice again, plus
+stories, history, and progress. What remains is real authentication (the app still runs
+on the `requireUser()` dev stub) and deployment — Phase 5 in the implementation plan.
 
 ## Rules specific to this codebase
 

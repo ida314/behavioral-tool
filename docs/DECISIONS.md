@@ -75,6 +75,13 @@ without it.
 body, query string, form field, or component prop. Always
 `const user = await requireUser()` and scope on `user.id`.
 
+**`requireUser()` calls `connection()` first**, which opts every caller out of static
+prerendering. Without it, Next prerenders pages that read only user-owned data (`/`,
+`/progress`, `/stories`) at build time and serves one user's data as static HTML — a
+bug the single-user dev stub hides completely. A real auth provider reads the request
+and forces this anyway, so it is true from the start. Check it with `npm run build`:
+every route should print `ƒ (Dynamic)`.
+
 ---
 
 ## ADR-004 — Deterministic question IDs instead of `cuid()`

@@ -25,13 +25,33 @@ previous phase's acceptance check passes.
 | 53-question bank, exact SPEC §9 distribution | `src/data/questions.ts` |
 | Idempotent seed | `prisma/seed.ts`, `npm run db:seed` |
 
-Verified: migration applies, seed produces 53 questions in the specified distribution,
-and a PracticeAttempt can be created, read back with its relations, and deleted through
-`src/lib/db.ts` + `requireUser()`. `npm run typecheck` is clean.
+### Done (Phases 1–4, plus the Phase 5 polish that is not auth or deploy)
 
-### Not started
+| Item | Where |
+| --- | --- |
+| Analytics shim, Zod schemas, display formatters | `src/lib/analytics.ts`, `validation.ts`, `format.ts` |
+| Reads — questions, attempts, stories, progress | `src/lib/queries/` |
+| Writes — `createAttempt`; `createStory` / `updateStory` / `deleteStory` | `src/lib/actions/` |
+| Components (SPEC §22) | `src/components/` |
+| All six MVP pages + app shell | `src/app/` |
+| Empty states, loading UI, save-failure handling, responsive layout | throughout |
 
-Everything user-facing. `src/app/page.tsx` is still the create-next-app placeholder.
+Verified end to end against the running database: two attempts at the same question
+produce "Attempt #2" with "Attempt #1" listed beneath it; `/progress` shows
+`Conflict 2 / Teamwork 1` with the other seven competencies at zero; deleting a story
+leaves its attempts in place with a null `storyId`; an empty response, a foreign
+`storyId`, and another user's `attemptId` are all rejected. With Postgres stopped,
+`createAttempt` **returns** `{ ok: false }` with the SPEC §24 message instead of
+throwing, so the editor keeps the user's response and **Try Again** succeeds once the
+database is back. `npm run typecheck`, `npm run lint`, and `npm run build` are clean.
+
+`npm run build` should report **every** route as `ƒ (Dynamic)`. Anything user-owned that
+turns up as `○ (Static)` is a bug — it would serve one user's data as build-time HTML.
+`requireUser()` calls `connection()` to prevent this.
+
+### Remaining (Phase 5)
+
+Real authentication and deployment — see the phase below. Nothing else is outstanding.
 
 ---
 
@@ -83,7 +103,7 @@ flow — see ADR-008.
 
 ---
 
-## Phase 1 — Practice and save
+## Phase 1 — Practice and save ✅ done
 
 The whole point: at the end of this phase an answer can be written and stored.
 
@@ -121,7 +141,7 @@ click Finish then Save — the row exists in `PracticeAttempt` with the right `u
 
 ---
 
-## Phase 2 — History and review
+## Phase 2 — History and review ✅ done
 
 This is the phase that makes the product worth using (SPEC §8.6).
 
@@ -144,7 +164,7 @@ older one listed with the correct attempt number and date.
 
 ---
 
-## Phase 3 — Stories
+## Phase 3 — Stories ✅ done
 
 **Build**
 
@@ -164,7 +184,7 @@ attempt survives with no story.
 
 ---
 
-## Phase 4 — Progress and dashboard
+## Phase 4 — Progress and dashboard ✅ done
 
 **Build**
 
@@ -182,16 +202,17 @@ untouched competencies show `0`.
 
 ---
 
-## Phase 5 — Polish and real auth
+## Phase 5 — Polish and real auth (partially done)
 
-**Build**
+**Done**
 
-1. `src/components/EmptyState.tsx` and the three empty states in SPEC §23.
-2. Loading UI (`loading.tsx`) for history, progress, and attempt detail.
-3. Error handling per SPEC §24 — a save failure shows "Something went wrong while
-   saving your response." with **Try Again**, and **must not clear the textarea**.
-   Test this deliberately by stopping the database mid-save.
-4. Responsive layout pass; check the practice editor on a phone-width viewport.
+1. ✅ `src/components/EmptyState.tsx` and the three empty states in SPEC §23.
+2. ✅ Loading UI (`loading.tsx`) for history, progress, and attempt detail.
+3. ✅ Error handling per SPEC §24 — verified by stopping Postgres mid-save.
+4. ✅ Responsive layout pass.
+
+**Remaining**
+
 5. Point `track()` at a real analytics provider.
 6. **Replace the dev-stub auth** (ADR-003) with a managed provider. Scope of the change:
    `src/lib/auth.ts` returns the real session user, plus sign-in/sign-out UI and

@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { db } from "@/lib/db";
 
 /**
@@ -51,6 +52,12 @@ function ensureDevUser(): Promise<void> {
  * Throws if there is no user — callers should not have to null-check.
  */
 export async function requireUser(): Promise<SessionUser> {
+  // Opt every caller out of static prerendering. Without this, pages that read
+  // only user-owned data (/, /progress, /stories) are prerendered at build time
+  // and serve one user's data as static HTML. The dev stub happens to return a
+  // single user, which hides the problem — a real provider reads the request and
+  // would force this anyway, so make it true from the start.
+  await connection();
   await ensureDevUser();
   return DEV_USER;
 }
