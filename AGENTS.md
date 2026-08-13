@@ -57,6 +57,7 @@ npm run db:up        # Postgres 17 in Docker on localhost:5433
 npm run db:migrate   # prisma migrate dev
 npm run db:seed      # 53 questions + dev user (idempotent)
 npm run db:studio    # browse the data
+npm run whisper:setup # build whisper.cpp + fetch a model (once, for spoken answers)
 npm run typecheck    # tsc --noEmit
 npm run lint
 ```
@@ -65,5 +66,11 @@ Run `npm run typecheck` and `npm run lint` before calling a phase done.
 
 ## Scope discipline
 
-No AI scoring, audio, transcription, or resume parsing — see SPEC §3 and §34. The MVP
-exists to answer one question: does a persistent history of answers make practice better?
+No AI scoring or resume parsing — see SPEC §3 and §34. The MVP exists to answer one
+question: does a persistent history of answers make practice better?
+
+**Audio is now in scope** and is the one deliberate exception to SPEC §3 (see ADR-010).
+An attempt can be spoken: recorded in the browser, transcribed by a local whisper.cpp,
+saved as audio bytes in `AttemptAudio` plus editable text on the attempt. Run
+`npm run whisper:setup` once before using it. Everything downstream — history, progress,
+previous-attempt comparison — reads the text field and needs no knowledge of audio.

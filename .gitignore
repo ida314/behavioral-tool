@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Local whisper.cpp build + models (npm run whisper:setup)
+/.whisper

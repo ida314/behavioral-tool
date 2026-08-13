@@ -49,6 +49,28 @@ database is back. `npm run typecheck`, `npm run lint`, and `npm run build` are c
 turns up as `○ (Static)` is a bug — it would serve one user's data as build-time HTML.
 `requireUser()` calls `connection()` to prevent this.
 
+### Done (spoken answers — a deliberate scope extension, ADR-010)
+
+| Item | Where |
+| --- | --- |
+| `responseType`, `transcript`, `AttemptAudio` (bytea) | `prisma/schema.prisma`, migration `20260812235519_add_audio_responses` |
+| Local whisper.cpp setup | `scripts/setup-whisper.sh`, `npm run whisper:setup` |
+| ffmpeg → whisper transcription | `src/lib/transcription.ts` |
+| Transcribe and save-with-audio actions | `src/lib/actions/transcribe.ts`, `actions/attempts.ts` |
+| Mic capture, transcript review, playback | `src/components/AudioRecorder.tsx`, `PracticeEditor.tsx` |
+| Authenticated audio streaming | `src/app/attempts/[attemptId]/audio/route.ts` |
+
+Verified: a WebM/Opus recording transcribes correctly through the real Server Action;
+saving stores audio and text in one transaction; the bytes served by the playback route
+are byte-identical to the original and still transcribe to the same text; another user
+reading that audio gets null; deleting an attempt cascades to its audio. Audio metadata
+reaches the detail page while the bytes never load into a list query.
+
+**Setup note:** `npm run whisper:setup` must be run once on any machine that will
+transcribe, and the dev server must be restarted after `prisma generate` — a running
+Turbopack process holds the old client and fails with a confusing validation error on
+new fields.
+
 ### Remaining (Phase 5)
 
 Real authentication and deployment — see the phase below. Nothing else is outstanding.

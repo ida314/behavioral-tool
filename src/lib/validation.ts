@@ -36,6 +36,21 @@ export const createAttemptSchema = z.object({
 
 export type CreateAttemptInput = z.input<typeof createAttemptSchema>;
 
+/**
+ * A spoken attempt. `response` is what the user saved and `transcript` is the
+ * unedited speech-to-text output — they differ whenever the transcript was
+ * corrected before saving, which is the normal case (ADR-010).
+ *
+ * `transcript` is optional on purpose: if transcription fails, the recording
+ * plus a typed answer must still be savable. Refusing the save would throw away
+ * a take the user cannot repeat.
+ */
+export const createAudioAttemptSchema = createAttemptSchema.extend({
+  transcript: optionalText(RESPONSE_MAX),
+});
+
+export type CreateAudioAttemptInput = z.input<typeof createAudioAttemptSchema>;
+
 export const createStorySchema = z.object({
   title: z.string().trim().min(1).max(STORY_TITLE_MAX),
   description: optionalText(STORY_DESCRIPTION_MAX),

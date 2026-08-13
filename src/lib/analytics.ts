@@ -11,7 +11,10 @@ export type AnalyticsEvent =
   | "attempt_saved"
   | "story_created"
   | "attempt_viewed"
-  | "question_changed";
+  | "question_changed"
+  // Beyond the six in SPEC §25: whether people actually practice out loud is
+  // the question the audio feature exists to answer (ADR-010).
+  | "recording_transcribed";
 
 type EventProps = Record<string, string | number | boolean | null | undefined>;
 

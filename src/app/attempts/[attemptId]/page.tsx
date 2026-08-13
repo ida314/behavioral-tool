@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
 import { requireUser } from "@/lib/auth";
 import { track } from "@/lib/analytics";
+import { formatBytes } from "@/lib/audio";
 import { formatDate, formatDuration } from "@/lib/format";
 import { getAttemptDetail } from "@/lib/queries/attempts";
 
@@ -45,9 +46,35 @@ export default async function AttemptDetailPage(
           : ""}
       </p>
 
-      <Section title="Response">
+      {attempt.audio ? (
+        <Section title="Recording">
+          {/* Streamed by the authenticated route beside this page, never a
+              public file — see src/app/attempts/[attemptId]/audio/route.ts. */}
+          <audio
+            src={`/attempts/${attempt.id}/audio`}
+            controls
+            preload="none"
+            className="w-full"
+          />
+          <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {formatBytes(attempt.audio.byteSize)} · {attempt.audio.mimeType}
+          </p>
+        </Section>
+      ) : null}
+
+      <Section title={attempt.responseType === "AUDIO" ? "Response (edited transcript)" : "Response"}>
         <p className="leading-relaxed whitespace-pre-wrap">{attempt.response}</p>
       </Section>
+
+      {/* Only worth showing when the user corrected it — otherwise it is the
+          same paragraph twice. */}
+      {attempt.transcript && attempt.transcript !== attempt.response ? (
+        <Section title="Original transcript">
+          <p className="leading-relaxed whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+            {attempt.transcript}
+          </p>
+        </Section>
+      ) : null}
 
       {attempt.story ? (
         <Section title="Story">

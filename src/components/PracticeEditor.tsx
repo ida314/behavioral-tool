@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
 import { PracticeTimer, elapsedSeconds } from "@/components/PracticeTimer";
 import { StorySelector } from "@/components/StorySelector";
-import { createAttempt } from "@/lib/actions/attempts";
+import { AudioRecorder, type Recording } from "@/components/AudioRecorder";
+import { createAttempt, createAudioAttempt } from "@/lib/actions/attempts";
+import { transcribeRecording } from "@/lib/actions/transcribe";
 import { track } from "@/lib/analytics";
 import { REFLECTION_MAX, RESPONSE_MAX } from "@/lib/validation";
 import type { StoryOption } from "@/lib/queries/stories";
@@ -13,13 +15,14 @@ import type { QuestionRecord } from "@/lib/queries/questions";
 
 /**
  * The practice session (SPEC §8.3) and the save panel (SPEC §8.4) as two stages
- * of one client component (ADR-006).
+ * of one client component (ADR-006), for a typed or a spoken answer (ADR-010).
  *
- * The invariant this file exists to protect: **the user's response lives in this
- * component's state and is never cleared, remounted, or navigated away from until
- * a save has actually succeeded** (SPEC §24). Losing a multi-paragraph interview
- * answer is the worst bug this app can have, so the save action returns failures
- * rather than throwing or redirecting, and both stages keep the same state.
+ * The invariant this file exists to protect: **the user's work — the response
+ * text and the recording alike — lives in this component's state and is never
+ * cleared, remounted, or navigated away from until a save has actually
+ * succeeded** (SPEC §24). Both save actions return failures rather than throwing
+ * or redirecting, so nothing here unmounts on a bad save. A recording is if
+ * anything more precious than typed text: the user cannot retype a take.
  */
 export function PracticeEditor({
   question,
@@ -31,11 +34,19 @@ export function PracticeEditor({
   const router = useRouter();
 
   const [stage, setStage] = useState<"editing" | "saving">("editing");
+  const [mode, setMode] = useState<"type" | "speak">("type");
   const [response, setResponse] = useState("");
   const [reflection, setReflection] = useState("");
   const [storyId, setStoryId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  // Held back when filling the textarea would overwrite text the user wrote.
+  const [pendingTranscript, setPendingTranscript] = useState<string | null>(null);
 
   // Lazy initializer, evaluated once. The start time is never rendered directly
   // — the timer's first frame reads 00:00 either way — so the server's clock and
@@ -58,18 +69,69 @@ export function PracticeEditor({
   // A refresh or a stray back-navigation would take the answer with it.
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {
-      if (savedRef.current || response.trim().length === 0) return;
+      if (savedRef.current) return;
+      if (response.trim().length === 0 && !recording) return;
       event.preventDefault();
     }
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [response]);
+  }, [response, recording]);
+
+  function applyTranscript(text: string) {
+    setResponse(text);
+    setPendingTranscript(null);
+  }
+
+  async function handleRecorded(next: Recording) {
+    setRecording(next);
+    setTranscribeError(null);
+    setTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", next.blob, "recording");
+
+      const result = await transcribeRecording(formData);
+      if (!result.ok) {
+        setTranscribeError(result.error);
+        return;
+      }
+
+      track("recording_transcribed", {
+        questionId: question.id,
+        seconds: next.seconds,
+        bytes: next.blob.size,
+      });
+      setTranscript(result.data.transcript);
+
+      // Only auto-fill when nothing would be lost: an empty box, or one still
+      // holding the previous transcript untouched. Otherwise let the user choose.
+      if (response.trim().length === 0 || response === transcript) {
+        applyTranscript(result.data.transcript);
+      } else {
+        setPendingTranscript(result.data.transcript);
+      }
+    } catch {
+      setTranscribeError(
+        "Something went wrong while transcribing your recording. Your recording is safe — you can save it and type the text yourself.",
+      );
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  function handleDiscardRecording() {
+    setRecording(null);
+    setTranscript(null);
+    setTranscribeError(null);
+    setPendingTranscript(null);
+  }
 
   function handleFinish() {
     setDurationSeconds(elapsedSeconds(startedAt));
     track("practice_completed", {
       questionId: question.id,
       responseLength: response.length,
+      spoken: recording !== null,
     });
     setStage("saving");
   }
@@ -78,13 +140,28 @@ export function PracticeEditor({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await createAttempt({
-          questionId: question.id,
-          response,
-          storyId,
-          reflection,
-          durationSeconds: durationSeconds ?? undefined,
-        });
+        // A recording is saved whenever one exists, regardless of which input
+        // mode is on screen — switching back to typing must not silently throw
+        // away a take the user already made.
+        const result = recording
+          ? await createAudioAttempt(
+              buildAudioFormData({
+                questionId: question.id,
+                response,
+                transcript,
+                storyId,
+                reflection,
+                durationSeconds,
+                recording,
+              }),
+            )
+          : await createAttempt({
+              questionId: question.id,
+              response,
+              storyId,
+              reflection,
+              durationSeconds: durationSeconds ?? undefined,
+            });
 
         if (!result.ok) {
           setError(result.error);
@@ -95,12 +172,14 @@ export function PracticeEditor({
           questionId: question.id,
           attemptId: result.data.attemptId,
           durationSeconds: durationSeconds ?? null,
+          responseType: recording ? "AUDIO" : "TEXT",
         });
         savedRef.current = true;
         router.push(`/attempts/${result.data.attemptId}`);
       } catch {
-        // Network failure, action transport error — anything that rejects. The
-        // response is still in state, which is the whole point.
+        // Network failure, action transport error, an upload over the body size
+        // limit — anything that rejects. The response and the recording are both
+        // still in state, which is the whole point.
         setError("Something went wrong while saving your response.");
       }
     });
@@ -115,26 +194,108 @@ export function PracticeEditor({
 
       {/* Both stages stay mounted so `response` is never re-initialized. */}
       <div className={stage === "editing" ? "mt-6" : "hidden"}>
-        <label htmlFor="response" className="sr-only">
-          Your response
-        </label>
-        <textarea
-          id="response"
-          value={response}
-          onChange={(event) => setResponse(event.target.value)}
-          maxLength={RESPONSE_MAX}
-          rows={16}
-          autoFocus
-          placeholder="Talk through the situation, what you did, and how it turned out."
-          className="w-full resize-y rounded-lg border border-zinc-300 bg-transparent p-4 leading-relaxed focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:focus:border-zinc-500"
-        />
+        <div className="flex gap-1 rounded-md border border-zinc-200 p-1 text-sm dark:border-zinc-800">
+          <ModeButton
+            active={mode === "type"}
+            onClick={() => setMode("type")}
+            label="Type"
+          />
+          <ModeButton
+            active={mode === "speak"}
+            onClick={() => setMode("speak")}
+            label="Speak"
+          />
+        </div>
+
+        {mode === "speak" ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Answer out loud, the way you would in the interview. The recording
+              is transcribed on this machine and both are saved.
+            </p>
+
+            <AudioRecorder
+              recording={recording}
+              onRecorded={handleRecorded}
+              onDiscard={handleDiscardRecording}
+              disabled={transcribing || pending}
+            />
+
+            {transcribing ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Transcribing your recording…
+              </p>
+            ) : null}
+
+            {transcribeError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {transcribeError}
+              </p>
+            ) : null}
+
+            {pendingTranscript ? (
+              <div className="rounded-md border border-zinc-300 p-4 text-sm dark:border-zinc-700">
+                <p className="font-medium">
+                  Transcript ready — your typed text was left alone.
+                </p>
+                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                  {pendingTranscript}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => applyTranscript(pendingTranscript)}
+                    className="font-medium underline underline-offset-4"
+                  >
+                    Replace my text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      applyTranscript(`${response}\n\n${pendingTranscript}`)
+                    }
+                    className="font-medium underline underline-offset-4"
+                  >
+                    Append
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingTranscript(null)}
+                    className="text-zinc-500 dark:text-zinc-400"
+                  >
+                    Keep mine
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-4">
+          <label
+            htmlFor="response"
+            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          >
+            {recording ? "Transcript — edit anything it got wrong" : "Your response"}
+          </label>
+          <textarea
+            id="response"
+            value={response}
+            onChange={(event) => setResponse(event.target.value)}
+            maxLength={RESPONSE_MAX}
+            rows={mode === "speak" ? 10 : 16}
+            autoFocus={mode === "type"}
+            placeholder="Talk through the situation, what you did, and how it turned out."
+            className="mt-2 w-full resize-y rounded-lg border border-zinc-300 bg-transparent p-4 leading-relaxed focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:focus:border-zinc-500"
+          />
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <PracticeTimer startedAt={startedAt} />
           <button
             type="button"
             onClick={handleFinish}
-            disabled={response.trim().length === 0}
+            disabled={response.trim().length === 0 || transcribing}
             className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
           >
             Finish Practice
@@ -151,6 +312,11 @@ export function PracticeEditor({
             <p className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-zinc-200 p-4 leading-relaxed whitespace-pre-wrap dark:border-zinc-800">
               {response}
             </p>
+            {recording ? (
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                Your recording will be saved with it.
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => setStage("editing")}
@@ -214,4 +380,60 @@ export function PracticeEditor({
       ) : null}
     </div>
   );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        active
+          ? "flex-1 rounded bg-zinc-900 px-3 py-1.5 font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          : "flex-1 rounded px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function buildAudioFormData({
+  questionId,
+  response,
+  transcript,
+  storyId,
+  reflection,
+  durationSeconds,
+  recording,
+}: {
+  questionId: string;
+  response: string;
+  transcript: string | null;
+  storyId: string;
+  reflection: string;
+  durationSeconds: number | null;
+  recording: Recording;
+}): FormData {
+  const formData = new FormData();
+  formData.append("questionId", questionId);
+  formData.append("response", response);
+  formData.append("transcript", transcript ?? "");
+  formData.append("storyId", storyId);
+  formData.append("reflection", reflection);
+  formData.append(
+    "durationSeconds",
+    durationSeconds == null ? "" : String(durationSeconds),
+  );
+  formData.append("audio", recording.blob, "recording");
+  return formData;
 }

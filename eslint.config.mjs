@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored whisper.cpp checkout — not our code to lint.
+    ".whisper/**",
+    // Generated Prisma client.
+    "src/generated/**",
   ]),
 ]);
 

@@ -22,6 +22,7 @@ export function AttemptCard({ attempt }: { attempt: AttemptListItem }) {
         {attempt.durationSeconds != null ? (
           <span>{formatDuration(attempt.durationSeconds)}</span>
         ) : null}
+        {attempt.responseType === "AUDIO" ? <span>Spoken</span> : null}
       </div>
     </Link>
   );

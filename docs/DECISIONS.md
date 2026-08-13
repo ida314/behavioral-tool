@@ -170,3 +170,49 @@ one-file change once there are users to measure.
 
 `response` is capped at 20,000 characters — comfortably above any real interview answer,
 below anything that would be abusive. SPEC §19 says only "reasonable database limit".
+
+---
+
+## ADR-010 — Spoken answers: record, transcribe locally, keep both
+
+**Decided.** A practice attempt can be spoken instead of typed. The browser records the
+answer, the server transcribes it with a local whisper.cpp, the user edits the text if it
+got something wrong, and **both the audio and the text are saved**.
+
+**This is a deliberate deviation from SPEC §3 and §34**, which list audio recording and
+speech transcription as non-goals and warn against letting them delay the MVP. Requested
+directly by the product owner after the MVP loop was built and verified — so the loop is
+not being delayed, it is being extended. SPEC §33 already described the shape this would
+take, and this follows it: `responseType` (TEXT | AUDIO) and `transcript` on
+`PracticeAttempt`, with the transcript feeding the same text field every other feature
+already reads. History, progress, previous-attempt comparison, and story association all
+work on a spoken attempt without knowing it is one.
+
+**Local whisper.cpp, not a hosted API.** `npm run whisper:setup` clones and builds
+whisper.cpp into a gitignored `.whisper/` and downloads a model. No API key, no
+per-minute cost, and a recording of your own voice never leaves the host — which matters
+more here than usual, given the deployment target is a homelab. `WHISPER_BIN`,
+`WHISPER_MODEL`, and `WHISPER_THREADS` override the defaults, so a machine with more RAM
+can run `small.en` or `medium.en` instead of the default `base.en`.
+
+**Audio lives in Postgres, in its own table.** `AttemptAudio.data` is a `bytea`, chosen
+over object storage so there is nothing to provision and the backup story stays "back up
+the database". It is a separate table rather than a column on `PracticeAttempt` so that
+listing history can never drag megabytes of audio along — `src/lib/queries/attempts.ts`
+selects audio *metadata* only, and the bytes are read in exactly one place,
+`src/lib/queries/audio.ts`.
+
+**Revisit if:** recordings get long enough that the database is unpleasant to back up, at
+which point `AttemptAudio` becomes a pointer into object storage and nothing else moves.
+
+**One narrow exception to ADR-005.** `/attempts/[attemptId]/audio` is a route handler,
+because an `<audio>` element needs a URL and inlining megabytes of base64 into the RSC
+payload is not a real alternative. It stays a thin handler over a query function, which
+is exactly what ADR-005 said the `/api` layer would look like if it ever existed. It is
+authenticated and scoped by `(userId, attemptId)`: another user's recording is a 404.
+
+**The rule that carries over from SPEC §24.** A recording is *harder* to replace than
+typed text — the user cannot retype a take. So the recording stays in client state until
+the save succeeds, discarding one is always an explicit action, and a failed transcription
+never blocks saving: the audio plus a typed answer is still a valid attempt, which is why
+`transcript` is nullable on an AUDIO attempt.

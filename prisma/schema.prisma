@@ -17,6 +17,7 @@ model User {
 
   stories  Story[]
   attempts PracticeAttempt[]
+  audio    AttemptAudio[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -66,7 +67,18 @@ model PracticeAttempt {
   storyId String?
   story   Story?  @relation(fields: [storyId], references: [id], onDelete: SetNull)
 
-  response        String
+  /// What the user saved. For a spoken attempt this starts as `transcript` and
+  /// may then be edited, so the two can legitimately differ.
+  response     String
+  responseType ResponseType @default(TEXT)
+  /// Raw speech-to-text output, kept unedited so the recording and the text it
+  /// produced can always be compared. Null for typed attempts.
+  transcript   String?
+
+  /// The recording itself, in its own table so listing attempts never risks
+  /// dragging megabytes of audio along (see docs/DECISIONS.md ADR-010).
+  audio AttemptAudio?
+
   durationSeconds Int?
   reflection      String?
 
@@ -77,6 +89,34 @@ model PracticeAttempt {
   @@index([userId, createdAt])
   @@index([userId, questionId])
   @@index([userId, storyId])
+}
+
+/// The audio bytes for a spoken attempt.
+///
+/// Split out from PracticeAttempt so that a `bytea` of several megabytes never
+/// loads as a side effect of listing history. `userId` is denormalized here so
+/// the playback route can scope by owner in a single query.
+model AttemptAudio {
+  id String @id @default(cuid())
+
+  attemptId String          @unique
+  attempt   PracticeAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  data     Bytes
+  mimeType String
+  byteSize Int
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum ResponseType {
+  TEXT
+  AUDIO
 }
 
 enum Competency {

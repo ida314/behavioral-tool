@@ -8,18 +8,25 @@ import type { Competency } from "@/lib/competency";
  * `(await requireUser()).id` — never an id from a param, prop, or form (SPEC §20).
  */
 
+export type ResponseType = "TEXT" | "AUDIO";
+
 export type AttemptListItem = {
   id: string;
   createdAt: Date;
   durationSeconds: number | null;
+  responseType: ResponseType;
   question: { id: string; text: string; competency: Competency };
   story: { id: string; title: string } | null;
 };
 
+// Note what is absent: `audio`. Selecting the relation would pull a multi-megabyte
+// bytea for every row in History. Audio is only ever fetched by the playback
+// route, one attempt at a time (ADR-010).
 const listSelect = {
   id: true,
   createdAt: true,
   durationSeconds: true,
+  responseType: true,
   question: { select: { id: true, text: true, competency: true } },
   story: { select: { id: true, title: true } },
 } as const;
@@ -64,6 +71,11 @@ export type AttemptDetail = {
   id: string;
   createdAt: Date;
   response: string;
+  responseType: ResponseType;
+  /** Unedited speech-to-text output; null for typed attempts. */
+  transcript: string | null;
+  /** Metadata only — the bytes are streamed by the playback route. */
+  audio: { mimeType: string; byteSize: number } | null;
   reflection: string | null;
   durationSeconds: number | null;
   question: { id: string; text: string; competency: Competency };
@@ -93,10 +105,15 @@ export async function getAttemptDetail(
       id: true,
       createdAt: true,
       response: true,
+      responseType: true,
+      transcript: true,
       reflection: true,
       durationSeconds: true,
       question: { select: { id: true, text: true, competency: true } },
       story: { select: { id: true, title: true, description: true } },
+      // Metadata only — never `data`, or opening an attempt would load the
+      // whole recording into memory just to render a player.
+      audio: { select: { mimeType: true, byteSize: true } },
     },
   });
 
