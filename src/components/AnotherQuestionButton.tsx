@@ -7,13 +7,16 @@ import type { Competency } from "@/lib/competency";
 /**
  * "Another Question" (SPEC §8.2).
  *
- * Pushes a fresh `pick` seed rather than re-randomizing on the server, so a
- * refresh keeps showing the same question and only this button changes it.
+ * Steps one place down the review queue (ADR-011) by bumping `pick` in the
+ * URL, so a refresh keeps showing the same question and only this button
+ * changes it. Past the end, the page wraps back to the top.
  */
 export function AnotherQuestionButton({
   competency,
+  pick,
 }: {
   competency: Competency | null;
+  pick: number;
 }) {
   const router = useRouter();
 
@@ -23,7 +26,7 @@ export function AnotherQuestionButton({
       onClick={() => {
         const params = new URLSearchParams();
         if (competency) params.set("competency", competency);
-        params.set("pick", String(Math.floor(Math.random() * 100_000)));
+        params.set("pick", String(pick + 1));
         track("question_changed", { competency: competency ?? null });
         router.push(`/practice?${params.toString()}`);
       }}

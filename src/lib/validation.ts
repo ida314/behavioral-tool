@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONFIDENCES } from "@/lib/review";
 
 /**
  * Input validation at the server-action boundary (SPEC §19, ADR-009).
@@ -32,6 +33,8 @@ export const createAttemptSchema = z.object({
     .optional(),
   durationSeconds: z.number().int().nonnegative().optional(),
   reflection: optionalText(REFLECTION_MAX),
+  // Optional: rating is a nudge, never a gate on saving (SPEC §24, ADR-011).
+  confidence: z.enum(CONFIDENCES).optional(),
 });
 
 export type CreateAttemptInput = z.input<typeof createAttemptSchema>;

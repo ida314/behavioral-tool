@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
 import { formatDateShort } from "@/lib/format";
+import { describeStatus, type ReviewStatus } from "@/lib/review";
 import type {
   QuestionPracticeStats,
   QuestionRecord,
@@ -13,11 +14,14 @@ import type {
 export function QuestionCard({
   question,
   stats,
+  status,
   featured = false,
   children,
 }: {
   question: QuestionRecord;
   stats?: QuestionPracticeStats;
+  /** Where the question sits in spaced review (ADR-011). */
+  status?: ReviewStatus;
   featured?: boolean;
   /** Extra actions rendered next to "Practice Question" (e.g. Another Question). */
   children?: React.ReactNode;
@@ -32,7 +36,10 @@ export function QuestionCard({
           : "rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
       }
     >
-      <CompetencyBadge competency={question.competency} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CompetencyBadge competency={question.competency} />
+        {status ? <ReviewLabel status={status} /> : null}
+      </div>
 
       <h2
         className={
@@ -69,3 +76,18 @@ export function QuestionCard({
     </article>
   );
 }
+
+function ReviewLabel({ status }: { status: ReviewStatus }) {
+  const tone =
+    status.kind === "due"
+      ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+      : status.kind === "new"
+        ? "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200"
+        : "text-zinc-500 dark:text-zinc-400";
+  return (
+    <span className={`rounded px-2 py-0.5 text-xs font-medium ${tone}`}>
+      {describeStatus(status)}
+    </span>
+  );
+}
+

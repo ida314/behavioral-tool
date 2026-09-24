@@ -216,3 +216,50 @@ typed text — the user cannot retype a take. So the recording stays in client s
 the save succeeds, discarding one is always an explicit action, and a failed transcription
 never blocks saving: the audio plus a typed answer is still a valid attempt, which is why
 `transcript` is nullable on an AUDIO attempt.
+
+---
+
+## ADR-011 — Spaced review: a Leitner ladder derived from attempts
+
+**Decided.** Each saved attempt can carry the user's own rating of how the *telling* went
+— Shaky, Okay, or Solid (`PracticeAttempt.confidence`, nullable). The practice page puts
+questions in review order instead of picking at random: due ones first (most overdue
+first), then ones never practiced (bank order), then the rest (soonest due first).
+"Another Question" steps down that queue. The rules live in `src/lib/review.ts`; the read
+is `src/lib/queries/review.ts`.
+
+**What the research says, and what that changes:**
+
+- *Spacing is the active ingredient; the exact schedule is not.* Karpicke & Bauernschmidt
+  (2011) found long-term retention depended on the absolute spacing between retrievals,
+  not on whether intervals expanded or stayed equal; Cepeda et al.'s 2006 meta-analysis
+  and later reviews find the spacing effect across domains, perceptual-motor tasks
+  included, and across retention intervals from seconds to months. So a fixed Leitner ladder is enough — SM-2's per-item ease factor or
+  FSRS's fitted model would add machinery without adding the benefit that matters.
+- *Behavioral answers are told, not recited.* Every prep guide worth reading (Tech
+  Interview Handbook, MentorCruise's SWE guide) says the same: a small bank of stories,
+  outlined not scripted, rehearsed out loud, 90 seconds to 2.5 minutes each. That is why
+  the rating is about fluency ("told it cleanly, in about two minutes"), not quality — the
+  user can judge fluency honestly, and it is what spacing improves.
+
+**The rules, in full.** Steps are 1 → 3 → 7 → 14 days. **Solid** climbs one step, but only
+if the question was due — an early Solid holds, because retelling a story an hour after
+the last telling proves nothing about remembering it. **Shaky** drops to the bottom.
+**Okay** and unrated attempts hold. Due dates fall at local midnight, so a question
+practiced late in the evening is due the next morning, not the next evening. The ladder
+tops out at two weeks because interview prep runs for weeks, not months: nothing should
+drop out of rotation before the interview it is being practiced for.
+
+**No schedule table.** A question's step is recomputed by replaying its attempts in
+order, the same computed-on-read approach as progress (SPEC §17). A stored schedule would
+be a second copy of the history that could disagree with it, and deleting or backdating
+an attempt would silently corrupt it. At one user's scale this is one indexed scan.
+
+**Why this is not a SPEC §3 violation.** §3 excludes *AI-generated* scoring and feedback,
+and gamification. A self-rating is the user's own judgment, is never shown as a score, and
+has no streaks, points, or badges. The rating is optional, so it never gates a save
+(SPEC §24).
+
+**Revisit if:** users rate almost everything Okay (the signal is too coarse — consider
+dropping to two buttons), or the bank grows past a hundred questions (new-question intake
+then needs a daily cap, which Leitner handles badly without one).

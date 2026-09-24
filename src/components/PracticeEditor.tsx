@@ -10,6 +10,12 @@ import { createAttempt, createAudioAttempt } from "@/lib/actions/attempts";
 import { transcribeRecording } from "@/lib/actions/transcribe";
 import { track } from "@/lib/analytics";
 import { REFLECTION_MAX, RESPONSE_MAX } from "@/lib/validation";
+import {
+  CONFIDENCES,
+  CONFIDENCE_OPTIONS,
+  formatInterval,
+  type Confidence,
+} from "@/lib/review";
 import type { StoryOption } from "@/lib/queries/stories";
 import type { QuestionRecord } from "@/lib/queries/questions";
 
@@ -27,9 +33,12 @@ import type { QuestionRecord } from "@/lib/queries/questions";
 export function PracticeEditor({
   question,
   stories,
+  intervals,
 }: {
   question: QuestionRecord;
   stories: StoryOption[];
+  /** Days until this question comes back under each rating (ADR-011). */
+  intervals: Record<Confidence, number>;
 }) {
   const router = useRouter();
 
@@ -38,6 +47,7 @@ export function PracticeEditor({
   const [response, setResponse] = useState("");
   const [reflection, setReflection] = useState("");
   const [storyId, setStoryId] = useState("");
+  const [confidence, setConfidence] = useState<Confidence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -151,6 +161,7 @@ export function PracticeEditor({
                 transcript,
                 storyId,
                 reflection,
+                confidence,
                 durationSeconds,
                 recording,
               }),
@@ -160,6 +171,7 @@ export function PracticeEditor({
               response,
               storyId,
               reflection,
+              confidence: confidence ?? undefined,
               durationSeconds: durationSeconds ?? undefined,
             });
 
@@ -326,6 +338,31 @@ export function PracticeEditor({
             </button>
           </section>
 
+          <fieldset>
+            <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              How did telling it feel?{" "}
+              <span className="font-normal text-zinc-500">(optional)</span>
+            </legend>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Rate the telling, not the story. It decides when this question
+              comes back.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {CONFIDENCES.map((option) => (
+                <ConfidenceButton
+                  key={option}
+                  selected={confidence === option}
+                  onClick={() =>
+                    setConfidence(confidence === option ? null : option)
+                  }
+                  label={CONFIDENCE_OPTIONS[option].label}
+                  hint={CONFIDENCE_OPTIONS[option].hint}
+                  when={formatInterval(intervals[option])}
+                />
+              ))}
+            </div>
+          </fieldset>
+
           <StorySelector
             stories={stories}
             selectedStoryId={storyId}
@@ -407,12 +444,52 @@ function ModeButton({
   );
 }
 
+function ConfidenceButton({
+  selected,
+  onClick,
+  label,
+  hint,
+  when,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  label: string;
+  hint: string;
+  when: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`rounded-md border px-3 py-2.5 text-left text-sm ${
+        selected
+          ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+          : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      }`}
+    >
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="font-medium">{label}</span>
+        <span className={selected ? "text-xs opacity-80" : "text-xs text-zinc-500"}>
+          {when}
+        </span>
+      </span>
+      <span
+        className={`mt-0.5 block text-xs ${selected ? "opacity-80" : "text-zinc-500 dark:text-zinc-400"}`}
+      >
+        {hint}
+      </span>
+    </button>
+  );
+}
+
 function buildAudioFormData({
   questionId,
   response,
   transcript,
   storyId,
   reflection,
+  confidence,
   durationSeconds,
   recording,
 }: {
@@ -421,6 +498,7 @@ function buildAudioFormData({
   transcript: string | null;
   storyId: string;
   reflection: string;
+  confidence: Confidence | null;
   durationSeconds: number | null;
   recording: Recording;
 }): FormData {
@@ -430,6 +508,7 @@ function buildAudioFormData({
   formData.append("transcript", transcript ?? "");
   formData.append("storyId", storyId);
   formData.append("reflection", reflection);
+  formData.append("confidence", confidence ?? "");
   formData.append(
     "durationSeconds",
     durationSeconds == null ? "" : String(durationSeconds),

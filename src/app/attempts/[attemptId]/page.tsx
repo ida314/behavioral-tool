@@ -6,6 +6,7 @@ import { track } from "@/lib/analytics";
 import { formatBytes } from "@/lib/audio";
 import { formatDate, formatDuration } from "@/lib/format";
 import { getAttemptDetail } from "@/lib/queries/attempts";
+import { CONFIDENCE_OPTIONS } from "@/lib/review";
 
 /**
  * Attempt detail (SPEC §8.6).
@@ -43,6 +44,9 @@ export default async function AttemptDetailPage(
         Attempt #{attempt.attemptNumber} · {formatDate(attempt.createdAt)}
         {attempt.durationSeconds != null
           ? ` · Duration: ${formatDuration(attempt.durationSeconds)}`
+          : ""}
+        {attempt.confidence
+          ? ` · Felt ${CONFIDENCE_OPTIONS[attempt.confidence].label.toLowerCase()}`
           : ""}
       </p>
 

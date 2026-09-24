@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Competency } from "@/lib/competency";
+import type { Confidence } from "@/lib/review";
 
 /**
  * Practice attempt reads (SPEC §8.5, §8.6).
@@ -77,6 +78,8 @@ export type AttemptDetail = {
   /** Metadata only — the bytes are streamed by the playback route. */
   audio: { mimeType: string; byteSize: number } | null;
   reflection: string | null;
+  /** The user's own rating of the telling; null when they skipped it (ADR-011). */
+  confidence: Confidence | null;
   durationSeconds: number | null;
   question: { id: string; text: string; competency: Competency };
   story: { id: string; title: string; description: string | null } | null;
@@ -108,6 +111,7 @@ export async function getAttemptDetail(
       responseType: true,
       transcript: true,
       reflection: true,
+      confidence: true,
       durationSeconds: true,
       question: { select: { id: true, text: true, competency: true } },
       story: { select: { id: true, title: true, description: true } },

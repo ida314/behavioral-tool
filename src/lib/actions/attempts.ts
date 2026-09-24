@@ -30,6 +30,7 @@ import { SAVE_FAILED_MESSAGE, type ActionResult } from "@/lib/actions/result";
 
 function revalidateAttemptViews() {
   revalidatePath("/");
+  revalidatePath("/practice");
   revalidatePath("/history");
   revalidatePath("/progress");
   revalidatePath("/stories");
@@ -82,8 +83,14 @@ export async function createAttempt(
       };
     }
 
-    const { questionId, response, storyId, durationSeconds, reflection } =
-      parsed.data;
+    const {
+      questionId,
+      response,
+      storyId,
+      durationSeconds,
+      reflection,
+      confidence,
+    } = parsed.data;
 
     const refs = await resolveReferences(user.id, questionId, storyId);
     if (!refs.ok) return refs;
@@ -97,6 +104,7 @@ export async function createAttempt(
         responseType: "TEXT",
         durationSeconds: durationSeconds ?? null,
         reflection: reflection ?? null,
+        confidence: confidence ?? null,
       },
       select: { id: true },
     });
@@ -143,6 +151,7 @@ export async function createAudioAttempt(
       transcript: formData.get("transcript"),
       storyId: formData.get("storyId") ?? undefined,
       reflection: formData.get("reflection") ?? undefined,
+      confidence: formData.get("confidence") || undefined,
       durationSeconds:
         typeof rawDuration === "string" && rawDuration.length > 0
           ? Number(rawDuration)
@@ -167,6 +176,7 @@ export async function createAudioAttempt(
       storyId,
       durationSeconds,
       reflection,
+      confidence,
     } = parsed.data;
 
     const refs = await resolveReferences(user.id, questionId, storyId);
@@ -182,6 +192,7 @@ export async function createAudioAttempt(
         transcript: transcript ?? null,
         durationSeconds: durationSeconds ?? null,
         reflection: reflection ?? null,
+        confidence: confidence ?? null,
         audio: {
           create: {
             userId: user.id,

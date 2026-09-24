@@ -64,15 +64,3 @@ export async function questionPracticeStatsMap(
     ]),
   );
 }
-
-/**
- * Deterministic pick from a numeric seed carried in the URL.
- *
- * Seeding from the URL rather than calling Math.random() during render means a
- * refresh keeps the same question and only "Another Question" changes it.
- */
-export function pickFeaturedQuestion<T>(items: T[], seed: number): T | null {
-  if (items.length === 0) return null;
-  const normalized = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : 0;
-  return items[normalized % items.length];
-}

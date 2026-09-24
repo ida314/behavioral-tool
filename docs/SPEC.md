@@ -139,10 +139,13 @@ Most Recent              Conflict — August 8
 
 ### 8.2 Practice Page — `/practice`
 
-Question selection: `Random Question`, or filter by competency.
+Question selection: the next question in review order (due, then new, then the rest —
+see docs/DECISIONS.md ADR-011); `Another Question` steps down that order. Filter by
+competency.
 
 Competencies: Teamwork · Conflict · Leadership · Failure · Ambiguity ·
-Communication · Technical Challenge · Learning · Time Management · Feedback
+Communication · Technical Challenge · Learning · Time Management · Feedback ·
+Motivation & Fit
 
 Question card displays:
 
@@ -184,13 +187,17 @@ Your Response
 Story Used
 [ Select story ]  or  [ + Create New Story ]
 
+How did telling it feel?
+[ Shaky · tomorrow ]  [ Okay · in 3 days ]  [ Solid · in 7 days ]
+
 Reflection
 [ textarea ]
 
 [ Save Attempt ]
 ```
 
-Story and reflection are optional.
+Story, rating, and reflection are optional. The rating schedules the question's next
+review (ADR-011).
 
 ### 8.5 History — `/history`
 

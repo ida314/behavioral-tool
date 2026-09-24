@@ -74,3 +74,7 @@ An attempt can be spoken: recorded in the browser, transcribed by a local whispe
 saved as audio bytes in `AttemptAudio` plus editable text on the attempt. Run
 `npm run whisper:setup` once before using it. Everything downstream — history, progress,
 previous-attempt comparison — reads the text field and needs no knowledge of audio.
+
+**Spaced review** (ADR-011) orders the practice page from a self-rating on each attempt.
+It has no table of its own: `src/lib/review.ts` recomputes each question's schedule from
+its attempts on every read. Keep it that way — a stored schedule can disagree with history.

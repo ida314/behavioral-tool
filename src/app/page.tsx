@@ -5,16 +5,25 @@ import { COMPETENCIES } from "@/lib/competency";
 import { formatDate } from "@/lib/format";
 import { mostRecentAttempt } from "@/lib/queries/attempts";
 import { getProgress } from "@/lib/queries/progress";
+import { reviewStatesMap } from "@/lib/queries/review";
+import { reviewStatus } from "@/lib/review";
 
 /**
  * Dashboard (SPEC §8.1) — a starting point, deliberately not an analytics page.
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [progress, recent] = await Promise.all([
+  const [progress, recent, states] = await Promise.all([
     getProgress(user.id),
     mostRecentAttempt(user.id),
+    reviewStatesMap(user.id),
   ]);
+
+  // Only practiced questions can be due, so the states map is the whole set.
+  const now = new Date();
+  const dueCount = [...states.values()].filter(
+    (state) => reviewStatus(state, now).kind === "due",
+  ).length;
 
   return (
     <div>
@@ -28,6 +37,7 @@ export default async function DashboardPage() {
       </p>
 
       <dl className="mt-8 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <Stat label="Due for Review" value={dueCount} />
         <Stat label="Questions Practiced" value={progress.questionsPracticed} />
         <Stat
           label="Competencies Covered"

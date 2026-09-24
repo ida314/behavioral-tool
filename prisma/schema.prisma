@@ -81,6 +81,10 @@ model PracticeAttempt {
 
   durationSeconds Int?
   reflection      String?
+  /// The user's own read on how the telling went — not a score of the answer.
+  /// Drives spaced review (docs/DECISIONS.md ADR-011). Null means unrated,
+  /// which review treats like OKAY.
+  confidence      Confidence?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,4 +135,10 @@ enum Competency {
   TIME_MANAGEMENT
   FEEDBACK
   MOTIVATION
+}
+
+enum Confidence {
+  SHAKY
+  OKAY
+  SOLID
 }
