@@ -16,6 +16,7 @@ export const COMPETENCIES = [
   "LEARNING",
   "TIME_MANAGEMENT",
   "FEEDBACK",
+  "MOTIVATION",
 ] as const;
 
 export type Competency = (typeof COMPETENCIES)[number];
@@ -31,6 +32,7 @@ export const COMPETENCY_LABELS: Record<Competency, string> = {
   LEARNING: "Learning",
   TIME_MANAGEMENT: "Time Management",
   FEEDBACK: "Feedback",
+  MOTIVATION: "Motivation & Fit",
 };
 
 export function isCompetency(value: unknown): value is Competency {

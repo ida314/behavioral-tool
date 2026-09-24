@@ -282,9 +282,10 @@ dynamically.** Each question belongs to one primary competency.
 }
 ```
 
-Distribution (≈53 total): Teamwork 6 · Conflict 6 · Leadership 5 · Failure 5 ·
-Ambiguity 5 · Communication 5 · Technical Challenge 6 · Learning 5 ·
-Time Management 5 · Feedback 5
+Distribution (23 total, revised 2026-09-24 — the bank in `src/data/questions.ts` is
+authoritative): Motivation & Fit 5 · Technical Challenge 5 · Learning 2 ·
+Time Management 2 · Ambiguity 2 · Teamwork 2 · Conflict 1 · Communication 1 ·
+Failure 1 · Feedback 1 · Leadership 1
 
 ## 10. Data Model
 
@@ -306,7 +307,7 @@ type Question = {
 
 enum Competency {
   TEAMWORK, CONFLICT, LEADERSHIP, FAILURE, AMBIGUITY,
-  COMMUNICATION, TECHNICAL_CHALLENGE, LEARNING, TIME_MANAGEMENT, FEEDBACK
+  COMMUNICATION, TECHNICAL_CHALLENGE, LEARNING, TIME_MANAGEMENT, FEEDBACK, MOTIVATION
 }
 
 type Story = {

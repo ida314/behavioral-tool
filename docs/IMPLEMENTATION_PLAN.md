@@ -22,7 +22,7 @@ previous phase's acceptance check passes.
 | Prisma client singleton with pg driver adapter | `src/lib/db.ts` |
 | Dev-stub `requireUser()` | `src/lib/auth.ts` (see ADR-003) |
 | Competency vocabulary + display labels | `src/lib/competency.ts` |
-| 53-question bank, exact SPEC §9 distribution | `src/data/questions.ts` |
+| Question bank (23 questions, SPEC §9) | `src/data/questions.ts` |
 | Idempotent seed | `prisma/seed.ts`, `npm run db:seed` |
 
 ### Done (Phases 1–4, plus the Phase 5 polish that is not auth or deploy)
@@ -84,11 +84,11 @@ npm install                 # also runs prisma generate via postinstall
 cp .env.example .env        # if .env is missing
 npm run db:up               # Postgres on localhost:5433
 npm run db:migrate          # apply migrations
-npm run db:seed             # 53 questions + dev user
+npm run db:seed             # 23 questions + dev user
 npm run dev
 ```
 
-Sanity check before writing code: `npm run db:studio` should show 53 rows in `Question`.
+Sanity check before writing code: `npm run db:studio` should show 23 rows in `Question`.
 
 ---
 

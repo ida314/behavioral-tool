@@ -55,7 +55,7 @@ one — attempts reference them (ADR-004).
 npm run dev          # Next dev server
 npm run db:up        # Postgres 17 in Docker on localhost:5433
 npm run db:migrate   # prisma migrate dev
-npm run db:seed      # 53 questions + dev user (idempotent)
+npm run db:seed      # 23 questions + dev user (idempotent)
 npm run db:studio    # browse the data
 npm run whisper:setup # build whisper.cpp + fetch a model (once, for spoken answers)
 npm run typecheck    # tsc --noEmit

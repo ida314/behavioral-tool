@@ -22,6 +22,16 @@ async function main() {
   }
   console.log(`Seeded ${questions.length} questions.`);
 
+  // Retire questions that were removed from the bank. A retired question that
+  // still has attempts stays in place — deleting it would break their history
+  // (ADR-004) — so only unreferenced rows go.
+  const bankIds = questions.map((question) => question.id);
+  const { count: retired } = await db.question.deleteMany({
+    where: { id: { notIn: bankIds }, attempts: { none: {} } },
+  });
+  const kept = await db.question.count({ where: { id: { notIn: bankIds } } });
+  console.log(`Removed ${retired} retired questions (${kept} kept for their attempts).`);
+
   // Dev-stub identity (docs/DECISIONS.md ADR-003). Harmless once real auth lands.
   const devUserId = process.env.DEV_USER_ID ?? "dev-user";
   await db.user.upsert({

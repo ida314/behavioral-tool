@@ -41,7 +41,7 @@ export type QuestionPracticeStats = {
 /**
  * "Previously practiced: 2 times" for every question at once.
  *
- * One `groupBy` instead of a count per card — the practice page renders up to 53
+ * One `groupBy` instead of a count per card — the practice page renders every
  * questions and an N+1 here would be the app's first performance bug.
  */
 export async function questionPracticeStatsMap(

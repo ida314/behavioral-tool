@@ -130,4 +130,5 @@ enum Competency {
   LEARNING
   TIME_MANAGEMENT
   FEEDBACK
+  MOTIVATION
 }
