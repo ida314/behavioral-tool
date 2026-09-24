@@ -1,0 +1,29 @@
+# Installed to ~/.config/systemd/user/ by scripts/deploy.sh. Edit this copy, not the
+# installed one — a redeploy overwrites it.
+[Unit]
+Description=Behavioral Prep (Next.js)
+Documentation=file:///home/dylan/Projects/behavioral-tool/deploy/README.md
+# Postgres is a container with `restart: unless-stopped`, so Docker starts it at boot and
+# a user unit cannot meaningfully order itself after that. Losing the race is handled by
+# `Restart=always` below, and by SPEC §24 — a save that hits a dead database returns an
+# error and keeps the user's answer rather than throwing.
+After=network-online.target
+
+[Service]
+Type=simple
+# The standalone server is a self-contained tree: it carries its own traced node_modules,
+# so the unit does not depend on the project's dev dependencies being installed.
+WorkingDirectory=/home/dylan/Projects/behavioral-tool/.next/standalone
+# Not /usr/bin/node: that is the distro's Node 18, which Next 16 does not support and which
+# has no global `File`, so every spoken-answer save threw. Run on the same Node 22 that
+# `npm run build` uses.
+ExecStart=%h/.local/bin/node server.js
+# DATABASE_URL, the whisper paths, and the dev-stub identity. Not in this file because it
+# holds a database password; gitignored for the same reason.
+EnvironmentFile=/home/dylan/Projects/behavioral-tool/deploy/.env.production
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

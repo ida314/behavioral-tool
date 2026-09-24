@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
       // 127.0.0.1, so a Server Action's Origin never matches the origin Next sees. Without
       // this, every action is rejected as cross-origin.
       allowedOrigins: ["behavioral-tool.tail2e282c.ts.net"],
+      // Spoken answers are uploaded through Server Actions, and the default cap
+      // is 1MB — roughly 30 seconds of Opus. 25MB of audio plus multipart
+      // overhead covers an answer far longer than anyone gives in an interview.
+      bodySizeLimit: AUDIO_UPLOAD_LIMIT,
     },
   },
 };
