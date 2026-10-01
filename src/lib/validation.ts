@@ -13,6 +13,7 @@ export const RESPONSE_MAX = 20_000;
 export const REFLECTION_MAX = 2_000;
 export const STORY_TITLE_MAX = 100;
 export const STORY_DESCRIPTION_MAX = 2_000;
+export const FEEDBACK_PROMPT_MAX = 10_000;
 
 /** Treat a blank optional textarea as "not provided" rather than an empty string. */
 const optionalText = (max: number) =>
@@ -66,3 +67,9 @@ export const updateStorySchema = createStorySchema.extend({
 });
 
 export type UpdateStoryInput = z.input<typeof updateStorySchema>;
+
+/** The "Copy LLM prompt" template. Not trimmed — its whitespace is the user's formatting. */
+export const feedbackPromptTemplateSchema = z
+  .string()
+  .max(FEEDBACK_PROMPT_MAX)
+  .refine((value) => value.trim().length > 0);

@@ -15,6 +15,10 @@ model User {
   email String  @unique
   name  String?
 
+  /// The "Copy LLM prompt" template on the attempt page, with {{question}}-style
+  /// placeholders. Null means the built-in default in src/lib/feedback-prompt.ts.
+  feedbackPromptTemplate String?
+
   stories  Story[]
   attempts PracticeAttempt[]
   audio    AttemptAudio[]

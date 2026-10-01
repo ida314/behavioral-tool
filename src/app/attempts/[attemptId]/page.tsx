@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
+import { CopyFeedbackPromptButton } from "@/components/CopyFeedbackPromptButton";
 import { requireUser } from "@/lib/auth";
 import { track } from "@/lib/analytics";
 import { formatBytes } from "@/lib/audio";
+import { renderFeedbackPrompt } from "@/lib/feedback-prompt";
 import { formatDate, formatDuration } from "@/lib/format";
 import { getAttemptDetail } from "@/lib/queries/attempts";
+import { getFeedbackPromptTemplate } from "@/lib/queries/feedback-prompt";
 import { CONFIDENCE_OPTIONS } from "@/lib/review";
 
 /**
@@ -22,7 +25,10 @@ export default async function AttemptDetailPage(
   const user = await requireUser();
 
   // Scoped lookup: another user's attempt id simply 404s (SPEC §20).
-  const attempt = await getAttemptDetail(user.id, attemptId);
+  const [attempt, promptTemplate] = await Promise.all([
+    getAttemptDetail(user.id, attemptId),
+    getFeedbackPromptTemplate(user.id),
+  ]);
   if (!attempt) notFound();
 
   track("attempt_viewed", {
@@ -129,6 +135,21 @@ export default async function AttemptDetailPage(
         >
           Practice this question again
         </Link>
+        <div className="flex items-center gap-2">
+          <CopyFeedbackPromptButton
+            prompt={renderFeedbackPrompt(promptTemplate, {
+              question: attempt.question.text,
+              response: attempt.response,
+              story: attempt.story,
+            })}
+          />
+          <Link
+            href={`/feedback-prompt?attempt=${attempt.id}`}
+            className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            Edit
+          </Link>
+        </div>
         <Link
           href="/history"
           className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
