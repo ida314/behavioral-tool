@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatClock } from "@/lib/format";
 import { MAX_AUDIO_BYTES, formatBytes } from "@/lib/audio";
+import { AudioPlayer } from "@/components/AudioPlayer";
 
 export type Recording = {
   blob: Blob;
@@ -172,7 +173,7 @@ export function AudioRecorder({
 
       {recording && previewUrl ? (
         <div className="mt-3">
-          <audio src={previewUrl} controls className="w-full" />
+          <AudioPlayer src={previewUrl} />
           <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
             {formatClock(recording.seconds)} · {formatBytes(recording.blob.size)}
           </p>

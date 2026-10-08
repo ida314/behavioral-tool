@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
 import { CopyFeedbackPromptButton } from "@/components/CopyFeedbackPromptButton";
 import { requireUser } from "@/lib/auth";
@@ -60,15 +61,21 @@ export default async function AttemptDetailPage(
         <Section title="Recording">
           {/* Streamed by the authenticated route beside this page, never a
               public file — see src/app/attempts/[attemptId]/audio/route.ts. */}
-          <audio
-            src={`/attempts/${attempt.id}/audio`}
-            controls
-            preload="none"
-            className="w-full"
-          />
-          <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-            {formatBytes(attempt.audio.byteSize)} · {attempt.audio.mimeType}
-          </p>
+          <AudioPlayer src={`/attempts/${attempt.id}/audio`} />
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+            <span>
+              {formatBytes(attempt.audio.byteSize)} · {attempt.audio.mimeType}
+            </span>
+            {/* A link, not a copy button: browsers cannot put audio on the
+                clipboard. Drag or upload the MP3 into another chat instead. */}
+            <a
+              href={`/attempts/${attempt.id}/audio?download`}
+              download
+              className="rounded-md border border-zinc-300 px-3 py-1 font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Download MP3
+            </a>
+          </div>
         </Section>
       ) : null}
 
