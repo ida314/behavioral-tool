@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CompetencyBadge } from "@/components/CompetencyBadge";
-import { PracticeTimer, elapsedSeconds } from "@/components/PracticeTimer";
+import {
+  PracticeTimer,
+  elapsedSeconds,
+  startClock,
+  togglePause,
+} from "@/components/PracticeTimer";
 import { StorySelector } from "@/components/StorySelector";
 import { AudioRecorder, type Recording } from "@/components/AudioRecorder";
 import { createAttempt, createAudioAttempt } from "@/lib/actions/attempts";
@@ -61,7 +66,7 @@ export function PracticeEditor({
   // Lazy initializer, evaluated once. The start time is never rendered directly
   // — the timer's first frame reads 00:00 either way — so the server's clock and
   // the client's disagreeing here cannot produce a hydration mismatch.
-  const [startedAt] = useState(() => Date.now());
+  const [clock, setClock] = useState(startClock);
 
   // Frozen when the user clicks Finish, so time spent filling in the save panel
   // is not counted as practice time.
@@ -137,7 +142,7 @@ export function PracticeEditor({
   }
 
   function handleFinish() {
-    setDurationSeconds(elapsedSeconds(startedAt));
+    setDurationSeconds(elapsedSeconds(clock));
     track("practice_completed", {
       questionId: question.id,
       responseLength: response.length,
@@ -303,7 +308,10 @@ export function PracticeEditor({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <PracticeTimer startedAt={startedAt} />
+          <PracticeTimer
+            clock={clock}
+            onTogglePause={() => setClock(togglePause)}
+          />
           <button
             type="button"
             onClick={handleFinish}
