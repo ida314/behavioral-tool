@@ -15,6 +15,24 @@ export type Recording = {
 type Status = "idle" | "recording" | "done";
 
 /**
+ * Peak amplitude below which the input counts as dead (about -80 dBFS). Even a
+ * quiet room puts a working microphone well above this; a muted or wrong input
+ * device delivers exact zeros.
+ */
+const SIGNAL_FLOOR = 1e-4;
+/** How long the input may stay dead before the recorder warns about it. */
+const NO_SIGNAL_WARNING_MS = 3000;
+
+type LevelMonitor = {
+  context: AudioContext;
+  interval: ReturnType<typeof setInterval>;
+  /** Readings taken while the context was running — zeros from a suspended one prove nothing. */
+  samples: number;
+  heardSignal: boolean;
+  lastSignalAt: number;
+};
+
+/**
  * Microphone capture via MediaRecorder (ADR-010).
  *
  * The component owns the recorder and the blob; the parent owns what happens
@@ -35,10 +53,13 @@ export function AudioRecorder({
   const [status, setStatus] = useState<Status>(recording ? "done" : "idle");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
+  const [noSignal, setNoSignal] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+  const monitorRef = useRef<LevelMonitor | null>(null);
 
   // Derived from the blob rather than stored, so there is no stale-URL window.
   const previewUrl = useMemo(
@@ -66,8 +87,61 @@ export function AudioRecorder({
   useEffect(() => {
     return () => {
       recorderRef.current?.stream.getTracks().forEach((track) => track.stop());
+      stopMonitor();
     };
   }, []);
+
+  /**
+   * Watches the live input so a muted or wrong microphone is caught while the
+   * user is still talking, not after a silent take has been saved. Best effort:
+   * if Web Audio is unavailable, recording proceeds unmonitored.
+   */
+  function startMonitor(stream: MediaStream) {
+    try {
+      const context = new AudioContext();
+      void context.resume();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      context.createMediaStreamSource(stream).connect(analyser);
+      const buffer = new Float32Array(analyser.fftSize);
+
+      const monitor: LevelMonitor = {
+        context,
+        samples: 0,
+        heardSignal: false,
+        lastSignalAt: Date.now(),
+        interval: setInterval(() => {
+          if (context.state !== "running") return;
+          analyser.getFloatTimeDomainData(buffer);
+          let peak = 0;
+          for (const sample of buffer) peak = Math.max(peak, Math.abs(sample));
+
+          monitor.samples += 1;
+          if (peak > SIGNAL_FLOOR) {
+            monitor.heardSignal = true;
+            monitor.lastSignalAt = Date.now();
+          }
+          setLevel(levelFromPeak(peak));
+          setNoSignal(Date.now() - monitor.lastSignalAt > NO_SIGNAL_WARNING_MS);
+        }, 100),
+      };
+      monitorRef.current = monitor;
+    } catch {
+      monitorRef.current = null;
+    }
+  }
+
+  /** Returns whether the whole take was provably silent. */
+  function stopMonitor(): boolean {
+    const monitor = monitorRef.current;
+    monitorRef.current = null;
+    setLevel(0);
+    setNoSignal(false);
+    if (!monitor) return false;
+    clearInterval(monitor.interval);
+    void monitor.context.close();
+    return monitor.samples > 0 && !monitor.heardSignal;
+  }
 
   async function start() {
     setError(null);
@@ -83,8 +157,18 @@ export function AudioRecorder({
         const mimeType = recorder.mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type: mimeType });
         stream.getTracks().forEach((track) => track.stop());
+        const silent = stopMonitor();
         setStatus("done");
 
+        // A take of pure digital silence is not an answer, and whisper would
+        // invent a transcript for it. Refuse it while the user can still re-record.
+        if (silent) {
+          setError(
+            "That recording was completely silent — no sound reached the microphone. Check that the right input device is selected and not muted, then record again.",
+          );
+          setStatus("idle");
+          return;
+        }
         if (blob.size === 0) {
           setError("That recording came out empty. Check your microphone.");
           setStatus("idle");
@@ -109,6 +193,7 @@ export function AudioRecorder({
       setElapsed(0);
       recorder.start();
       recorderRef.current = recorder;
+      startMonitor(stream);
       setStatus("recording");
     } catch (cause) {
       setError(
@@ -143,6 +228,19 @@ export function AudioRecorder({
               <span className="inline-block size-2 animate-pulse rounded-full bg-red-600" />
               Recording {formatClock(elapsed)}
             </span>
+            <span
+              className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+              role="meter"
+              aria-label="Microphone level"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(level * 100)}
+            >
+              <span
+                className="block h-full bg-emerald-500 transition-[width] duration-100"
+                style={{ width: `${level * 100}%` }}
+              />
+            </span>
           </>
         ) : (
           <button
@@ -167,6 +265,16 @@ export function AudioRecorder({
         ) : null}
       </div>
 
+      {status === "recording" && noSignal ? (
+        <p
+          className="mt-3 text-sm text-amber-700 dark:text-amber-400"
+          role="alert"
+        >
+          No sound is reaching the microphone. Check that the right input device
+          is selected and not muted — this take is recording silence.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
       ) : null}
@@ -181,6 +289,13 @@ export function AudioRecorder({
       ) : null}
     </div>
   );
+}
+
+/** Maps a peak amplitude onto 0–1 across -60…0 dBFS, the range speech occupies. */
+function levelFromPeak(peak: number): number {
+  if (peak <= 0) return 0;
+  const db = 20 * Math.log10(peak);
+  return Math.min(1, Math.max(0, (db + 60) / 60));
 }
 
 /**
